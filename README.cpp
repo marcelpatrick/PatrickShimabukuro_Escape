@@ -1,7 +1,6 @@
 # PatrickShimabukuro_Escape
 
-```
-// Fill out your copyright notice in the Description page of Project Settings.
+// test
 
 #pragma once
 
@@ -13,5 +12,3 @@
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class BUILDING_ESCAPE_API UGrabber : public UActorComponent
-
-```
