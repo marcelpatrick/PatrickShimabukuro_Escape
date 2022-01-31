@@ -2,7 +2,7 @@
 
 // test
 
-`
+```
 #pragma once
 
 #include "CoreMinimal.h"
@@ -14,4 +14,4 @@
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class BUILDING_ESCAPE_API UGrabber : public UActorComponent
 
-`
+```
