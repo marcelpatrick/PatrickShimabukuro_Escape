@@ -28,20 +28,41 @@ Set up the input component:
 
   - Then it needs to be called in the code passing the parameters for the input event (button to be pressed), defining which object is calling it and the function that this input will perform - whether grab or realease, from the UGrabber function.
 
-
-
-
-
 ```cpp
-#pragma once
+// Called when the game starts
+void UGrabber::BeginPlay()
+{
+	Super::BeginPlay();
 
-#include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
-#include "PhysicsEngine/PhysicsHandleComponent.h"
-#include "Grabber.generated.h"
+	FindPhysicsHandle();
+	SetUpInputComponent();
+}
 
+// Check if physics handle is working
+void UGrabber::FindPhysicsHandle()
+{
+	PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class BUILDING_ESCAPE_API UGrabber : public UActorComponent
+	if (!PhysicsHandle)
+	{
+		// Physics handle is not found
+		UE_LOG(LogTemp, Error, TEXT("Physics Handle not found in component: %s"), *GetOwner()->GetName());
+	}
+}
+
+// Set action for pressed and release grab functions
+void UGrabber::SetUpInputComponent()
+{
+	InputComponent = GetOwner()->FindComponentByClass<UInputComponent>();
+	if (InputComponent)
+	{
+		InputComponent->BindAction("Grab", IE_Pressed, this, &UGrabber::Grab);
+		InputComponent->BindAction("Grab", IE_Released, this, &UGrabber::Release);
+	} 
+}
 
 ```
+If the input is on it will call the UGrabber::Grab() function:
+
+
+
