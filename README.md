@@ -21,12 +21,7 @@ This is the level I created using box brushes for the walls, floors and ceiling,
 
 On BeggingPlay:
 Set up the physics handle which is a component that allows the actor to attach another object to or close to his body, like if it were holding it.
-Set up the input component:
-  - The SetUpInnputComponent needs first to be set in the project settings on Unreal: Engine > Input
 
-![image](https://user-images.githubusercontent.com/12215115/151792021-02d7ea99-dd1d-47eb-84d9-af8cc7252c56.png)
-
-  - Then it needs to be called in the code passing the parameters for the input event (button to be pressed), defining which object is calling it and the function that this input will perform - whether grab or realease, from the UGrabber function.
 
 ```cpp
 // Called when the game starts
@@ -49,7 +44,16 @@ void UGrabber::FindPhysicsHandle()
 		UE_LOG(LogTemp, Error, TEXT("Physics Handle not found in component: %s"), *GetOwner()->GetName());
 	}
 }
+```
 
+Set up the input component:
+  - The SetUpInnputComponent needs first to be set in the project settings on Unreal: Engine > Input
+
+![image](https://user-images.githubusercontent.com/12215115/151792021-02d7ea99-dd1d-47eb-84d9-af8cc7252c56.png)
+
+  - Then it needs to be called in the code passing the parameters for the input event (button to be pressed), defining which object is calling it and the function that this input will perform - whether grab or realease, from the UGrabber function.
+
+```cpp
 // Set action for pressed and release grab functions
 void UGrabber::SetUpInputComponent()
 {
@@ -62,7 +66,127 @@ void UGrabber::SetUpInputComponent()
 }
 
 ```
-If the input is on it will call the UGrabber::Grab() function:
+If the input is on, it will call the UGrabber::Grab() function:
 
+The grab function will then call the GetFirstPhysicsBodyInReach() that queries which objects around the actor are being reached and assigns the result to a FHitResult variable
+Once we know what we hit, we then assign the component hit to a UPrimitiveComponent* variable using the GetComponent() function
+Then if we hit a component from the type AActor, then it will use our physics handle variable to grab our component using its GrabComponentArLocation function (it takes in a UPrimitiveComponent*)
 
+```cpp
+void UGrabber::Grab()
+{
+	FHitResult HitResult = GetFirstPhysicsBodyInReach();
 
+	// The component to be grabbed
+	UPrimitiveComponent* ComponentToGrab = HitResult.GetComponent();
+
+	AActor* ActorHit = HitResult.GetActor();
+
+	// If hit something then attach physics handle
+	if (ActorHit)
+	{	
+		// Nullptr protection. if there is not a pointer object PhysicsHandle, quit the iteration and return
+		if (!PhysicsHandle){return;}
+	
+		// Attach physics handle
+		PhysicsHandle->GrabComponentAtLocation
+			(
+			ComponentToGrab,
+			// Name for the bone to which the object will be attached. since we don't have bones = None
+			NAME_None,
+			// End of the line trace
+			GetPlayersReach()
+			);
+	}
+}
+```
+GetFirstPhysicsBodyInReach uses the LineTracingSingleByObjectType function that "draws" a line from the player to the object like an invisible arm to allow the player to grab something at a predefined distance.
+
+```cpp
+FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
+{
+	FHitResult Hit;
+
+	// Crate a var to store the parameters of the collision query itself
+	FCollisionQueryParams TraceParams(FName(TEXT("")), false, GetOwner());
+
+	// Ray casting for the player to reach out something at a certain distance (Reach)
+	GetWorld()->LineTraceSingleByObjectType(
+		OUT Hit,
+		GetPlayersWorldPos(),
+		GetPlayersReach(),
+		FCollisionObjectQueryParams(ECollisionChannel::ECC_PhysicsBody), 
+		TraceParams
+	);
+
+	return Hit;
+}
+
+```
+LineTracingByObject type needs to know where the player is located in the world - GetPlayerWorldPosition() - and what is the extension of the players invisible arm - GetPlayersReach()
+
+The player's position is defined by 2 variables: its location (FVerctor variable) and where he is looking to, or its rotation (FRotator variable) and we get those by accessing GetPlayerViewPoint()
+
+```cpp
+FVector UGrabber::GetPlayersWorldPos() const
+{
+	// Get Players view point
+	FVector PlayerViewPointLocation;
+	FRotator PlayerViewPointRotation;
+
+	// Update PlayerViewPointLocation and Rotation variables with the current value
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
+		OUT PlayerViewPointLocation,
+		OUT PlayerViewPointRotation
+		);
+	
+	return PlayerViewPointLocation;
+}
+```
+To define the players arm's reach we do the same thing but we return then a line that extends from the player's location until a defined distance (reach) following a certain direction defined by a vector:
+
+```cpp
+// Returns line trace end
+FVector UGrabber::GetPlayersReach() const
+{
+	// Get Players view point
+	FVector PlayerViewPointLocation;
+	FRotator PlayerViewPointRotation;
+
+	//OUT just indicates that these are out parameters. out parameters is when you pass a 
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
+		OUT PlayerViewPointLocation,
+		OUT PlayerViewPointRotation
+		);
+	
+	// Players view point location. to which distance from the player the grabber object will be located?
+	return PlayerViewPointLocation + PlayerViewPointRotation.Vector() * Reach;
+}
+```
+The release input will use the ReleaseComponent() function from the physics handle
+
+```cpp
+void UGrabber::Release()
+{
+	// Nullptr protection. if there is not a pointer object PhysicsHandle, quit the iteration and return
+	if(!PhysicsHandle){return;}
+	PhysicsHandle->ReleaseComponent();
+}
+```
+
+The players reach will be updated in every tick
+
+```cpp
+void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// If physics handle is attached 
+	// Nullptr protection. if there is not a pointer object PhysicsHandle, quit the iteration and return
+	if(!PhysicsHandle){return;}
+	if (PhysicsHandle->GrabbedComponent)
+	{
+		PhysicsHandle->SetTargetLocation(GetPlayersReach());
+	}
+}
+```
