@@ -190,3 +190,40 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	}
 }
 ```
+
+## 3- Pressure Plate
+
+The Pressure Plate is the place where the player needs to place the 2 objects is order for the doors to open
+
+First we need to include a trigger volume object in our world and this will be our pressure plate
+
+![image](https://user-images.githubusercontent.com/12215115/151966769-726905e6-55a6-4edf-a1f9-7f271d801aca.png)
+
+Then we need to create a OpenDoor component and instantiate a ATriggerVolume* variable in our OpenDoor header file to represent our pressure plate object in our code and expose this variable to make it editable anywhere
+
+```cpp
+UPROPERTY(EditAnywhere)
+ATriggerVolume* PressurePlate = nullptr; // use * because is a pointer
+```
+
+Then we add the OpenDoor component to our doors in Unreal and click on OpenDoor component and assign our PressurePlate variable in the Pressure Plate slot
+
+![image](https://user-images.githubusercontent.com/12215115/151967892-18802931-a2dc-4096-8cd7-8dbff32c3ece.png)
+
+Now we need to define what triggers the trigger volume that we called PressurePlate by creating a float variable MassToOpenDoors that will be used as the limit for the total mass of all the actors in that volume that is needed in order to trigger the OpenDoor function. This will also be exposed to edit:
+
+```cpp
+UPROPERTY(EditAnywhere)
+float MassToOpenDoors = 50.f;
+```
+
+
+
+
+
+
+
+
+
+
+
