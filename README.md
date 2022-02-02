@@ -221,6 +221,176 @@ float MassToOpenDoors = 50.f;
 ## 4- Creating an "OpenDoor" function
 
 
+On Beggin Play we will:
+First, store the door initial position ie. the initial yaw, by using GetActorRotation().Yaw
+Also, create a variable to store the updated Yaw that we will call CurrentYaw and initialize as = to our initial Yaw position.
+Then we have to define the door's final position that will be the angle to which it will open. This will be our initial Yaw + the open angle variable (which is hardcoded in the header file but exposed to edition)
+Finally, we must check if we have all the components we need to perform this action, that are the pressure plate and the audio component that will be played when the door opens. We do this with the FindPressurePlate() and FindAudioComponent() verification functions that will check if components don't exist and log and error.
+
+```cpp
+void UOpenDoor::BeginPlay()
+{
+	Super::BeginPlay();
+
+	// Get door initial position to make it move 
+		// GetOwner means which actor owns this function OpenDoor that I'm in. "Who is the owner of this function"
+		// GetOwner() Get the owner of this Actor
+		// it is a bottom up approach to find the actor that we are referring to 
+	InitialYaw = GetOwner()->GetActorRotation().Yaw;
+	CurrentYaw = InitialYaw;
+
+	// Define to which angle the door will open
+		// Updates the OpenAngle taking the default value set in the header file and adding the InitialYaw position
+		//so that it starts rotating from the initial pivot point
+			// += is the same as OpenAngle = OpenAngle + InitialYaw;
+	OpenAngle += InitialYaw; 
+
+	// Check functions to make sure we are beginning play with all components we need. otherwise, log and error.
+	FindpressurePlate();
+	FindAudioComponent();
+}
+```
+
+On every tick we will: 
+Call the function that calculates the total mass of actors in the pressure plate - TotalMassOfActors() and chec if it is larger the the threshold variable MassToOpenDoors. If so, call the open door function and store the time we did it on variable DoorLastOpen using GetTimeSeconds(). 
+If the condition is not met, then check if the delta time of the last door opening and the current time is greated the delay threshold hardcoded in the DoorCloseDelay variable. - this is used to define for how long we will hold the door open. If so, call the CloseDoor() function.
+
+```cpp
+void UOpenDoor::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	// Define condition to open door
+		// if the total mass of the actors inside the pressure plate is greated than our limit variable, then we are going to open the door
+		//Use of &&: if statements have lazy execution: when using && condition, if 1st is false, it won't execute the rest of the code (and in this case will crash)
+		//In order to trick the system to execute at least part of the code (and avoid crashing), include a 1st condition that is always true
+		//This avoids a "Null Pointer Error" in case I asign the WorldPosition component to an actor that does not have the PressurePlate in place
+	if (TotalMassOfActors() > MassToOpenDoors) 
+	{
+		OpenDoor(DeltaTime);
+		DoorLastOpened = GetWorld()->GetTimeSeconds();
+
+	} else {
+		// if we passed the time for close delay, then close the door
+		if (GetWorld()->GetTimeSeconds() - DoorLastOpened > DoorCloseDelay)
+		{
+			CloseDoor(DeltaTime);
+		}	
+	}
+}
+```
+This is how we calculate the total mass of actors in the pressure plate: 
+Initialize the TotalMass float to zero.
+Create a TArray of AActors objects to store all the actors that will be in the pressureplate
+Access the presure plate variable and use its functions GetOverlappingActors to update the OverlappingActors variables. - here the "OUT" descriptor doesn't do anything on the code. It is just a code description to inform that the same variable that the function is recieving as an input will be updated as returned as an output. 
+The we will iterate inside the OverlappingActors array and update the TotalMass variable with its current value + the mass of the actor on that index in the array. We access the actors' mass by acessing the index variable - "Actor" in this specific iteration -, using the function GetMass(). We can only acess the GetMass() function by first finding the component by its class UPrimitiveComponent. UPrimitiveComponents are any type of component in our scene that have geometry and can render physics or collision.
+
+```cpp
+// Function to get the total mass of the actors placed on the open door area in order to 
+//open the door with any actor placed there, not only the player
+float UOpenDoor::TotalMassOfActors() const
+{
+	float TotalMass = 0.f;
+
+	// Find overlapping actors, Store them in an array
+	TArray<AActor*> OverlappingActors;
+
+	// Go to the pressure plate to see whats in it. Get overlapping actors and store them in this array
+	if (!PressurePlate){return TotalMass;}
+	PressurePlate->GetOverlappingActors(OUT OverlappingActors);
+
+	// Add their masses
+	for (AActor* Actor : OverlappingActors)
+	{
+		// += adds up each iteration and reasigns to the updated variable value: 
+		TotalMass += Actor->FindComponentByClass<UPrimitiveComponent>()->GetMass();
+	}
+	return TotalMass;
+}
+```
+
+This is how we open de doors:
+First, we have to update the door's current Yaw (on every tick) by doing a linear interpolation between the "old" current Yaw and the pre defined OpenAngle. This does an linear progression between the door's initial position and its final position. We assign a DeltaTime (passed as input in this function) to be the opening speed.
+Then we create a FRotator variable using GetActorRotation() that well store the updated current Yaw.
+Finally, we will set the actual door rotation with our updated FRotator variable by using the SetActorRotation() function.
+
+While opening the door we will play a sound:
+First, to ensure that the sound only plays while this function is running and doesn't overlap with the close door function, we need to create 2 boolean variables to work as light switches: OpenDoorSound and CloseDoorSound and initialize them as true.
+So when OpenDoor is called, we assign CloseDoorSound to false to turn it off. The we check if audio component is there, if not we return our of the function. 
+Then if the OpenDoorSwitch is turned off (false) we Play the audio and turn the OpenDoorSwitch on (true) so that it doesn't loop indefinetely playing the same sound.
+
+```cpp
+// Function to get the total mass of the actors placed on the open door area in order to 
+//open the door with any actor placed there, not only the player
+float UOpenDoor::TotalMassOfActors() const
+{
+	float TotalMass = 0.f;
+
+	// Find overlapping actors, Store them in an array
+	TArray<AActor*> OverlappingActors;
+
+	// Go to the pressure plate to see whats in it. Get overlapping actors and store them in this array
+		// Nullptr protection. it needs to return TotalMass because the whole function needs to return something
+	if (!PressurePlate){return TotalMass;}
+	PressurePlate->GetOverlappingActors(OUT OverlappingActors);
+
+	// Add their masses
+	// Range based for loop simplification - use : instead of i < range, i++
+		// (Define index variable type and give the index a name : array to interate)
+	for (AActor* Actor : OverlappingActors)
+	{
+		// += adds up each iteration and reasigns to the updated variable value: 
+			//the same as: updated TotalMass = previous TotalMass + Actor
+			// PrimitiveComponents are SceneComponents that contain or generate some sort of geometry, 
+			//generally to be rendered or used as collision
+				// A Static Mesh for instance is a subclass of a PrimitiveComponent
+		TotalMass += Actor->FindComponentByClass<UPrimitiveComponent>()->GetMass();
+	}
+	return TotalMass;
+}
+
+void UOpenDoor::OpenDoor(float DeltaTime)
+{
+	//Rotate Door based on relative position
+	CurrentYaw = FMath::Lerp(CurrentYaw, OpenAngle, DeltaTime * DoorOpenSpeed); //DeltaTime to respect framerate speed. to change it, change 1.f to .5f for example
+	FRotator DoorRotation = GetOwner()->GetActorRotation();
+	DoorRotation.Yaw = CurrentYaw;
+	GetOwner()->SetActorRotation(DoorRotation); 
+
+	// Stop close door sound and if OpenDoorSound hasn't played it then play it	
+	CloseDoorSound = false;
+	if(!AudioComponent){return;}
+	if (!OpenDoorSound)
+	{
+		AudioComponent->Play();
+		OpenDoorSound = true;
+	}
+}
+```
+
+The Close Door function does pretty much the same: 
+
+```cpp
+void UOpenDoor::CloseDoor(float DeltaTime)
+{
+	CurrentYaw = FMath::Lerp(CurrentYaw, InitialYaw, DeltaTime * DoorCloseSpeed);
+	FRotator DoorRotation = GetOwner()->GetActorRotation();
+	DoorRotation.Yaw = CurrentYaw;
+	GetOwner()->SetActorRotation(DoorRotation);
+
+	OpenDoorSound = false;
+	if (!AudioComponent) {return;}
+	if (!CloseDoorSound)
+	{
+		AudioComponent->Play();
+		CloseDoorSound = true;
+	}
+}
+```
+
+
+
+
 
 
 
