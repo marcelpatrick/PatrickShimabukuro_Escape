@@ -206,17 +206,19 @@ UPROPERTY(EditAnywhere)
 ATriggerVolume* PressurePlate = nullptr; // use * because is a pointer
 ```
 
-Then we add the OpenDoor component to our doors in Unreal and click on OpenDoor component and assign our PressurePlate variable in the Pressure Plate slot
+Then we add the OpenDoor component to our doors in Unreal and click on OpenDoor component and assign our PressurePlate variable in the Pressure Plate slot. This will tie the pressure plate to trigger the OpenDoor functions assigned to our door object.
 
 ![image](https://user-images.githubusercontent.com/12215115/151967892-18802931-a2dc-4096-8cd7-8dbff32c3ece.png)
 
-Now we need to define what triggers the trigger volume that we called PressurePlate by creating a float variable MassToOpenDoors that will be used as the limit for the total mass of all the actors in that volume that is needed in order to trigger the OpenDoor function. This will also be exposed to edit:
+Now we need to define what triggers the trigger volume that we called PressurePlate. We do this by creating a float variable MassToOpenDoors in the OpenDoor header file that will be used as the threshold for the total mass of all the actors in that volume that is needed in order to trigger the OpenDoor function. This will also be exposed to edition:
 
 ```cpp
 UPROPERTY(EditAnywhere)
 float MassToOpenDoors = 50.f;
 ```
 
+
+## 4- Creating an "OpenDoor" function
 
 
 
