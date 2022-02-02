@@ -309,27 +309,6 @@ So when OpenDoor is called, we assign CloseDoorSound to false to turn it off. Th
 Then if the OpenDoorSwitch is turned off (false) we Play the audio and turn the OpenDoorSwitch on (true) so that it doesn't loop indefinetely playing the same sound.
 
 ```cpp
-// Function to get the total mass of the actors placed on the open door area in order to 
-//open the door with any actor placed there, not only the player
-float UOpenDoor::TotalMassOfActors() const
-{
-	float TotalMass = 0.f;
-
-	// Find overlapping actors, Store them in an array
-	TArray<AActor*> OverlappingActors;
-
-	// Go to the pressure plate to see whats in it. Get overlapping actors and store them in this array
-	if (!PressurePlate){return TotalMass;}
-	PressurePlate->GetOverlappingActors(OUT OverlappingActors);
-
-	// Add their masses
-	for (AActor* Actor : OverlappingActors)
-	{
-		TotalMass += Actor->FindComponentByClass<UPrimitiveComponent>()->GetMass();
-	}
-	return TotalMass;
-}
-
 void UOpenDoor::OpenDoor(float DeltaTime)
 {
 	//Rotate Door based on relative position
