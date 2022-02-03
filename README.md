@@ -202,6 +202,8 @@ First we need to include a trigger volume object in our world and this will be o
 Then we need to create a OpenDoor component and instantiate a ATriggerVolume* variable in our OpenDoor header file to represent our pressure plate object in our code and expose this variable to make it editable anywhere
 
 ```cpp
+#include "Engine/TriggerVolume.h"
+
 UPROPERTY(EditAnywhere)
 ATriggerVolume* PressurePlate = nullptr; // use * because is a pointer
 ```
